@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alejandra y el Corazón de Miguel - Edición Deluxe</title>
+    <style>
+        
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #1a2a32;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+        }
+        .game-wrapper {
+            background: #2e4a5a;
+            padding: 20px;
+            border-radius: 30px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 896px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border: 5px solid #6b4f3c;
+            border-radius: 15px;
+            background: #7cb57c;
+        }
+        .panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            gap: 10px;
+        }
+        .map-indicator {
+            background: #3a1e0f;
+            color: #ffd966;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 20px;
+            border: 3px solid #b87c4b;
+            text-shadow: 2px 2px 0 #5a3e2b;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            max-width: 200px;
+        }
+        .dpad button {
+            width: 60px;
+            height: 60px;
+            font-size: 28px;
+            background: #4a6b7a;
+            border: 4px solid #1e3a4a;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #0f2a33;
+            transition: 0.1s ease;
+            touch-action: manipulation;
+            font-weight: bold;
+        }
+        .dpad button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #0f2a33;
+        }
+        .action-btn {
+            padding: 10px 25px;
+            background: #d96b6b;
+            border: 4px solid #8b3c3c;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #5a2a2a;
+            touch-action: manipulation;
+        }
+        .action-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #5a2a2a;
+        }
+        .dialog-box {
+            margin-top: 15px;
+            background: #f8f0d8;
+            border: 5px solid #8b6b4a;
+            border-radius: 25px;
+            padding: 15px 25px;
+            min-height: 90px;
+            font-size: 18px;
+            color: #2c1e0e;
+            box-shadow: inset 0 0 15px #c0a88a;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            white-space: pre-wrap;
+        }
+        .music-btn {
+            background: #4a6b7a;
+            border: 3px solid #1e3a4a;
+            border-radius: 30px;
+            color: white;
+            font-size: 20px;
+            padding: 5px 15px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        @media (max-width: 500px) {
+            .dpad button { width: 50px; height: 50px; font-size: 24px; }
+            .action-btn { font-size: 18px; padding: 8px 15px; }
+            .map-indicator { font-size: 16px; padding: 5px 15px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <div class="map-indicator" id="mapIndicator">🌸 MAPA 1: BOSQUE</div>
+        <button class="music-btn" id="musicBtn">🔊 Música</button>
+    </div>
+    <canvas id="gameCanvas" width="896" height="672"></canvas>
+
+    <div class="panel">
+        <div class="controls">
+            <div class="dpad">
+                <button id="btnUp">▲</button>
+                <button id="btnLeft">◀</button>
+                <button id="btnDown">▼</button>
+                <button id="btnRight">▶</button>
+            </div>
+            <button class="action-btn" id="btnAction">🗨️ HABLAR</button>
+        </div>
+    </div>
+
+    <div id="dialogBox" class="dialog-box">
+        ⚡ Presiona HABLAR para interactuar...
+    </div>
+</div>
+
+<audio id="bgMusic" loop preload="auto">
+    <source src="Puro Talento.mp3" type="audio/mp3">
+    
+</audio>
+
+<script>
+(function() {
+    // ---------- CONFIGURACIÓN ----------
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const TILE_SIZE = 56;
+    const MAP_W = 16;
+    const MAP_H = 12;
+
+    const TILE = {
+        GRASS: 0,
+        TREE: 1,
+        ROCK: 2,
+        WATER: 3,
+        FLOWER: 4,
+        SAND: 5,
+        DOOR: 6,
+        HEART: 7,
+        KEY: 8,
+        CHEST: 9,
+        BIKE: 10,
+        ALTAR: 11,
+        RED_CARPET: 12,
+        FLOWER_TREE: 13
+    };
+
+    // ---------- MAPAS (con las nuevas puertas) ----------
+    const maps = [
+        // MAPA 0: Bosque (se añade puerta en (0,7))
+        [
+            [1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1], // (0,7) ahora es puerta
+            [1,0,0,13,0,0,1,0,0,13,0,0,1,0,0,1],
+            [1,0,1,0,0,0,0,0,0,0,0,1,0,0,5,1],
+            [1,13,0,0,1,0,13,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,1,0,0,0,13,0,0,1],
+            [1,0,5,0,0,1,0,0,0,0,5,0,0,0,0,1],
+            [1,0,0,0,13,0,0,0,0,0,0,0,1,0,13,1],
+            [1,1,0,0,0,0,0,0,5,0,0,0,0,0,0,1],
+            [1,0,0,1,0,0,0,0,0,0,1,0,0,0,5,1],
+            [1,0,0,0,0,0,13,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,5,0,0,1,0,0,0,0,13,0,9,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1]
+        ],
+        // MAPA 1: Claro (se añade puerta en (0,7))
+        [
+            [1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1], // (0,7) ahora es puerta
+            [1,0,0,0,0,0,0,0,0,13,0,0,1,0,0,1],
+            [1,0,5,0,1,0,0,5,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,1,0,13,0,1],
+            [1,1,0,13,0,0,0,0,0,0,5,0,0,0,0,1],
+            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,0,5,0,0,0,0,0,0,0,0,5,0,1,1],
+            [1,0,1,0,0,0,0,0,13,0,0,0,0,0,0,1],
+            [1,0,0,0,0,1,0,0,0,0,0,1,0,0,8,1],
+            [1,13,0,0,0,0,0,0,0,0,0,0,0,13,0,1],
+            [1,0,0,1,0,0,5,0,0,1,0,0,0,0,0,1],
+            [1,6,0,0,0,0,0,0,0,0,0,0,0,0,0,6]  // (11,0) sigue siendo puerta a mapa0, (11,15) a mapa2
+        ],
+        // MAPA 2: Santuario (solo una puerta a mapa1 en (0,0), las otras eliminadas)
+        [
+            [1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,1], // (0,0) ahora es puerta, (0,6) ya no es puerta (era 6, ahora 1)
+            [1,0,0,13,0,0,0,0,0,13,0,0,0,0,0,1],
+            [1,0,1,0,0,0,0,0,0,0,0,1,0,0,5,1],
+            [1,13,0,0,1,0,13,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,1,0,0,0,13,0,0,1],
+            [1,0,5,0,0,1,0,0,0,0,5,0,0,0,0,1],
+            [1,0,0,0,13,0,0,0,0,0,0,0,1,0,13,1],
+            [1,1,0,0,0,0,0,0,5,0,0,0,0,0,0,1],
+            [1,0,0,1,0,0,0,0,0,0,1,0,0,0,5,1],
+            [1,0,0,0,0,0,13,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,5,0,0,0,0,0,0,0,13,0,10,1], // (10,15) es 10 (bici), no se toca
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0]  // (11,0) ahora 0, (11,7) ahora 0, (11,15) ahora 0, (11,14) sigue 7 (corazón)
+        ],
+        // MAPA 3: Altar (sin cambios)
+        [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,13,13,0,0,0,13,13,13,13,13,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,0,0,13,12,12,12,12,12,12,12,12,13,0,0,1],
+            [1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1]
+        ]
+    ];
+
+
+
+
+
+
+
+    let npcs = [
+        // MAPA 0
+        { map: 0, x: 4, y: 2, name: 'Ardilla Lisa', type: 'ardilla',
+          dialog: ["El amor es como una bellota: pequeño pero puede crecer enorme.", "Miguel te espera en el santuario, no te rindas BRISA."] },
+        { map: 0, x: 10, y: 5, name: 'Gato Bigotes', type: 'gato',
+          dialog: ["Los gatos sabemos cuándo alguien está enamorado...", "Tu corazón late fuerte por Miguel, ¿verdad?"] },
+        { map: 0, x: 6, y: 8, name: 'Perro Toby', type: 'perro',
+          dialog: ["Guau! El amor verdadero es como un hueso: hay que buscarlo hasta encontrarlo.", "Miguel está triste sin ti, ve rápido."] },
+        { map: 0, x: 2, y: 4, name: 'Panda Po', type: 'panda',
+          dialog: ["El amor es mi plato favorito, más que el bambú.", "Miguel te regalaría todo el bosque si pudiera."] },
+        { map: 0, x: 12, y: 6, name: 'Búho Sabio', type: 'búho',
+          dialog: ["Te vi a ti y a Miguel teniendo sexo en ese Motel", "Necesitas una llave dorada en el mapa 2."] },
+        // MAPA 1
+        { map: 1, x: 3, y: 2, name: 'Conejo Saltarín', type: 'conejo',
+          dialog: ["Los conejos saltamos de alegría cuando amamos.", "La llave del cofre brilla al este."] },
+        { map: 1, x: 12, y: 5, name: 'Zorro Rojo', type: 'zorro',
+          dialog: ["Miguel me conto una vez que cocinass rico", "El mapa 3 guarda su corazón."] },
+        { map: 1, x: 7, y: 9, name: 'Erizo Punzante', type: 'erizo',
+          dialog: ["Mis púas protegen mi corazón, pero tú ve a por el de Miguel.", "¡Ánimo, campeona!"] },
+        { map: 1, x: 14, y: 4, name: 'Koala Dormilón', type: 'koala',
+          dialog: ["Zzz... Miguel esta desesperado por cazarse contigo" ," te desea y quiere quitarte todo eso que llama ropa ten cuidado  _."," Vamos ve a por Miguel."] },
+        { map: 1, x: 5, y: 11, name: 'Pingüino Tux', type: 'penguin',
+          dialog: ["Los pingüinos regalamos piedras a nuestra pareja como símbolo de amor.", "Miguel te daría las piedras más hermosas."] },
+        { map: 1, x: 1, y: 7, name: 'Gato Miguel', type: 'gato',
+          dialog: ["¿Sabías que los gatos tenemos 32 músculos en cada oreja?", "Pero lo más importante es que en un 19 de MMarzo nacio una lo que hoy seria una preciosa mujer Llamada Alejandra y tambien uno de los actores favoritos de Miguel Bruce Willis."] },
+        { map: 1, x: 9, y: 3, name: 'Perro Max', type: 'perro',
+          dialog: ["Los perros podemos oler hasta 300 millones de olores.", "Y yo huelo que el corazón de Miguel está cerca."] },
+        // MAPA 2
+        { map: 2, x: 4, y: 3, name: 'Ciervo Noble', type: 'ciervo',
+          dialog: ["Mudo de cuernos cada año. sabes que a Miguel le encantas?", "Sigue hacia el sur."] },
+        { map: 2, x: 11, y: 8, name: 'Mariposa Iris', type: 'mariposa',
+          dialog: ["Vuelo de flor en flor buscando el amor.", "El tuyo está muy cerca."] },
+        { map: 2, x: 1, y: 9, name: 'Panda Rojo Fuego', type: 'panda_rojo',
+          dialog: ["Mi pelaje rojo es como el amor que sientes.", "El corazón de Miguel te espera."] },
+        { map: 2, x: 15, y: 5, name: 'Anciano Sabio', type: 'anciano',
+          dialog: ["He visto muchos amores, pero el vuestro es especial", "Ve y toma su corazón."] },
+        { map: 2, x: 7, y: 2, name: 'Gato Sombra', type: 'gato',
+          dialog: ["Oh cielos Brisa hueles a detergente Miguel te olera toma este perfume."] },
+        { map: 2, x: 13, y: 10, name: 'Perro Chispa', type: 'perro',
+          dialog: ["Los perros entendemos hasta 250 palabras.", "Y yo entiendo que Miguel te ama."] },
+        // MAPA 3 - Cura
+        { map: 3, x: 6, y: 3, name: 'Cura', type: 'cura',
+          dialog: ["Bienvenidos al altar del amor.", "Cuando estéis listos, acercaos a la alfombra."] }
+    ];
+
+    // ---------- ESTADO DEL JUEGO ----------
+    let currentMap = 0;
+    let player = { x: 7, y: 10 };
+    let inventory = { key: false, bike: false };
+    let hasHeart = false;
+    let chestOpened = false;
+    let weddingMode = false;
+    let weddingStep = 0;
+    let weddingTimer = 0;
+    let miguelPos = { x: 8, y: 10 };
+    let fadeAlpha = 0;
+    let gameEnded = false;
+
+    let dialogLines = [];
+    let dialogIdx = 0;
+    let dialogActive = false;
+    let currentSpeaker = '';
+
+    let windOffset = 0;
+    const windSpeed = 0.02;
+
+    const audio = document.getElementById('bgMusic');
+    const musicBtn = document.getElementById('musicBtn');
+    let musicPlaying = false;
+
+    // ---------- FUNCIONES DE DIÁLOGO ----------
+    function showDialog(speaker, lines) {
+        if (weddingMode && weddingStep > 1) return;
+        currentSpeaker = speaker;
+        dialogLines = lines;
+        dialogIdx = 0;
+        dialogActive = true;
+        document.getElementById('dialogBox').innerText = `🗣️ ${speaker}:\n${lines[0]}`;
+    }
+
+    function nextDialog() {
+        if (!dialogActive) return;
+        dialogIdx++;
+        if (dialogIdx < dialogLines.length) {
+            document.getElementById('dialogBox').innerText = `🗣️ ${currentSpeaker}:\n${dialogLines[dialogIdx]}`;
+        } else {
+            dialogActive = false;
+            document.getElementById('dialogBox').innerText = "⚡ Presiona HABLAR para interactuar...";
+        }
+    }
+
+    // ---------- FUNCIÓN PARA VERIFICAR ADYACENCIA ----------
+    function isAdjacent(x1, y1, x2, y2) {
+        return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1 && !(x1 === x2 && y1 === y2);
+    }
+
+    // ---------- INTERACCIÓN ----------
+    function interact() {
+        if (dialogActive) { nextDialog(); return; }
+        if (weddingMode || gameEnded) return;
+
+        const tile = maps[currentMap][player.y][player.x];
+
+        if (tile === TILE.HEART && !hasHeart) {
+            hasHeart = true;
+            showDialog('🌸 Corazón de Miguel', [
+                "💖 ¡Has encontrado el Corazón de Miguel!",
+                "Miguel aparece y te abraza: 'Alejandra, sabía que vendrías.'",
+                "Ahora estás lista para casarte. Ve a la puerta que ha aparecido."
+            ]);
+            maps[2][11][14] = TILE.DOOR;
+            return;
+        }
+
+        if (tile === TILE.KEY && !inventory.key) {
+            inventory.key = true;
+            showDialog('🔑 Llave Dorada', [
+                "¡Encontraste una llave dorada!",
+                "Brilla intensamente. Debe abrir algo en el mapa 1."
+            ]);
+            maps[currentMap][player.y][player.x] = TILE.GRASS;
+            return;
+        }
+
+        if (currentMap === 0 && tile === TILE.CHEST && !chestOpened) {
+            if (inventory.key) {
+                chestOpened = true;
+                inventory.bike = true;
+                showDialog('🎁 Cofre Mítico', [
+                    "¡ABRISTE EL COFRE MÍTICO!",
+                    "✨ WOW! ENCONTRASTE UNA BICI ELÉCTRICA",
+                    "⚡ QUE ACELERA AL REVÉS ⚡",
+                    "🚲 Objeto Mítico: Al moverte hacia ARRIBA, irás RÁPIDO hacia ABAJO",
+                    "¡Es un caos divertido! Actívala parándote sobre ella."
+                ]);
+                maps[0][10][14] = TILE.BIKE;
+            } else {
+                showDialog('🔒 Cofre', ["Está cerrado. Necesitas la LLAVE DORADA del MAPA 2."]);
+            }
+            return;
+        }
+
+        if (tile === TILE.BIKE && inventory.bike) {
+            showDialog('🚲 Bici Mítica', [
+                "BICI ELÉCTRICA MÍTICA ACTIVADA",
+                "Ahora te mueves al REVÉS:",
+                "ARRIBA = BAJA RÁPIDO, ABAJO = SUBE RÁPIDO",
+                "IZQUIERDA = DERECHA, DERECHA = IZQUIERDA",
+                "¡Disfruta el caos amoroso! 💕"
+            ]);
+            return;
+        }
+
+        // Interacción con Miguel en el altar (adyacentes y sobre alfombra)
+        if (currentMap === 3 && hasHeart && maps[3][player.y][player.x] === TILE.RED_CARPET && isAdjacent(player.x, player.y, miguelPos.x, miguelPos.y)) {
+            startWedding();
+            return;
+        }
+
+        const npc = npcs.find(n => n.map === currentMap && n.x === player.x && n.y === player.y);
+        if (npc) {
+            showDialog(npc.name, npc.dialog);
+            return;
+        }
+
+        showDialog('🌿 Bosque', ["No hay nadie aquí...", "Los árboles susurran: 'Sigue buscando...'"]);
+    }
+
+    // ---------- MOVIMIENTO (con las nuevas puertas) ----------
+    function tryMove(dx, dy) {
+        if (dialogActive || weddingMode || gameEnded) return;
+
+        let newX = player.x + dx;
+        let newY = player.y + dy;
+
+        if (inventory.bike) {
+            if (dx === 0 && dy === -1) newY = player.y + 2;
+            else if (dx === 0 && dy === 1) newY = player.y - 2;
+            else if (dx === -1 && dy === 0) newX = player.x + 2;
+            else if (dx === 1 && dy === 0) newX = player.x - 2;
+        }
+
+        if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
+
+        const tile = maps[currentMap][newY][newX];
+        if (tile === TILE.TREE || tile === TILE.ROCK || tile === TILE.FLOWER_TREE) return;
+
+        if (tile === TILE.DOOR) {
+            // Mapa 0 -> Mapa 1 (puerta inferior derecha y nueva superior central)
+            if (currentMap === 0 && newY === 11 && newX === 14) {
+                currentMap = 1;
+                player.x = 7; player.y = 11;
+            }
+            else if (currentMap === 0 && newY === 0 && newX === 7) {
+                currentMap = 1;
+                player.x = 0; player.y = 7; // Va a la misma posición en mapa 1
+            }
+            // Mapa 1 -> Mapa 0 (puerta inferior izquierda y nueva superior central)
+            else if (currentMap === 1 && newY === 11 && newX === 0) {
+                currentMap = 0;
+                player.x = 7; player.y = 10;
+            }
+            else if (currentMap === 1 && newY === 0 && newX === 7) {
+                currentMap = 0;
+                player.x = 0; player.y = 7;
+            }
+            // Mapa 1 -> Mapa 2 (puerta inferior derecha)
+            else if (currentMap === 1 && newY === 11 && newX === 15) {
+                currentMap = 2;
+                player.x = 7; player.y = 1;
+            }
+            // Mapa 2 -> Mapa 3 (puerta del corazón, se activa tras obtener el corazón)
+            else if (currentMap === 2 && newY === 11 && newX === 14) {
+                if (hasHeart) {
+                    currentMap = 3;
+                    player.x = 7; player.y = 10;
+                    miguelPos = { x: 8, y: 10 };
+                } else {
+                    return;
+                }
+            }
+            // Mapa 2 -> Mapa 1 (única puerta en (0,0))
+            else if (currentMap === 2 && newY === 0 && newX === 0) {
+                currentMap = 1;
+                player.x = 7; player.y = 11; // Aparece en la entrada estándar de mapa 1
+            }
+            // Mapa 3 -> Mapa 2 (regreso)
+            else if (currentMap === 3 && newY === 11 && newX === 7) {
+                currentMap = 2;
+                player.x = 7; player.y = 1;
+            }
+            else return;
+
+            const mapNames = ["🌸 MAPA 1: BOSQUE", "🐾 MAPA 2: CLARO", "💖 MAPA 3: SANTUARIO", "💒 MAPA 4: ALTAR"];
+            document.getElementById('mapIndicator').innerText = mapNames[currentMap];
+            return;
+        }
+
+        player.x = newX;
+        player.y = newY;
+    }
+
+    // ---------- INICIAR BODA ----------
+    function startWedding() {
+        weddingMode = true;
+        weddingStep = 0;
+        weddingTimer = 0;
+    }
+
+    // ---------- ACTUALIZAR BODA ----------
+    function updateWedding() {
+        if (!weddingMode) return;
+
+        weddingTimer++;
+        if (weddingTimer < 15) return;
+        weddingTimer = 0;
+
+        switch (weddingStep) {
+            case 0:
+                let playerTargetX = 6, playerTargetY = 4;
+                let miguelTargetX = 7, miguelTargetY = 4;
+                let playerMoved = false, miguelMoved = false;
+
+                if (player.x !== playerTargetX || player.y !== playerTargetY) {
+                    if (player.x < playerTargetX) player.x++;
+                    else if (player.x > playerTargetX) player.x--;
+                    else if (player.y < playerTargetY) player.y++;
+                    else if (player.y > playerTargetY) player.y--;
+                    playerMoved = true;
+                }
+                if (miguelPos.x !== miguelTargetX || miguelPos.y !== miguelTargetY) {
+                    if (miguelPos.x < miguelTargetX) miguelPos.x++;
+                    else if (miguelPos.x > miguelTargetX) miguelPos.x--;
+                    else if (miguelPos.y < miguelTargetY) miguelPos.y++;
+                    else if (miguelPos.y > miguelTargetY) miguelPos.y--;
+                    miguelMoved = true;
+                }
+                if (!playerMoved && !miguelMoved) weddingStep++;
+                break;
+            case 1:
+                showDialog('Cura', ["Los declaro marido y mujer.", "ahora pueden tener muchos bebes."]);
+                weddingStep++;
+                break;
+            case 2:
+                if (!dialogActive) weddingStep++;
+                break;
+            case 3:
+                fadeAlpha += 0.02;
+                if (fadeAlpha >= 1) {
+                    fadeAlpha = 1;
+                    weddingStep++;
+                }
+                break;
+            case 4:
+                gameEnded = true;
+                weddingMode = false;
+                break;
+        }
+    }
+
+    // ---------- SPRITES (sin cambios) ----------
+    function drawTile(x, y, tile) {
+        const px = x * TILE_SIZE;
+        const py = y * TILE_SIZE;
+
+        const colors = {
+            [TILE.GRASS]: '#7c9c5c',
+            [TILE.TREE]: '#3c6c3c',
+            [TILE.ROCK]: '#8c8c8c',
+            [TILE.WATER]: '#4c8cb4',
+            [TILE.FLOWER]: '#f49c7c',
+            [TILE.SAND]: '#dcbc7c',
+            [TILE.DOOR]: '#ac8c5c',
+            [TILE.HEART]: '#e45c5c',
+            [TILE.KEY]: '#ecd46c',
+            [TILE.CHEST]: '#b4844c',
+            [TILE.BIKE]: '#6cace4',
+            [TILE.ALTAR]: '#d4b48c',
+            [TILE.RED_CARPET]: '#b44c4c',
+            [TILE.FLOWER_TREE]: '#d46c8c'
+        };
+        ctx.fillStyle = colors[tile];
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+        // Texturas (abreviado)
+        switch (tile) {
+            case TILE.GRASS:
+                ctx.fillStyle = '#5c8c3c';
+                for (let i = 0; i < 7; i++) ctx.fillRect(px + 4 + i * 8, py + 48, 2, 8);
+                ctx.fillStyle = '#8cb46c';
+                for (let i = 0; i < 4; i++) ctx.fillRect(px + 12 + i * 12, py + 30, 3, 6);
+                break;
+            case TILE.TREE:
+                ctx.fillStyle = '#8c5c3c';
+                ctx.fillRect(px + 20, py + 36, 16, 16);
+                ctx.fillStyle = '#3c9c3c';
+                ctx.save();
+                ctx.translate(px + 28, py + 20);
+                ctx.rotate(Math.sin(windOffset + x * 0.5) * 0.03);
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = '#e45c7c';
+                ctx.fillRect(px + 18, py + 12, 4, 4);
+                ctx.fillRect(px + 34, py + 18, 4, 4);
+                ctx.fillRect(px + 24, py + 8, 4, 4);
+                break;
+            case TILE.FLOWER_TREE:
+                ctx.fillStyle = '#8c5c3c';
+                ctx.fillRect(px + 20, py + 36, 16, 16);
+                ctx.fillStyle = '#f49cb4';
+                ctx.save();
+                ctx.translate(px + 28, py + 20);
+                ctx.rotate(Math.sin(windOffset + x * 0.5) * 0.03);
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = '#ffb6c1';
+                ctx.fillRect(px + 14, py + 8, 4, 4);
+                ctx.fillRect(px + 30, py + 12, 4, 4);
+                ctx.fillRect(px + 22, py + 4, 4, 4);
+                break;
+            case TILE.ROCK:
+                ctx.fillStyle = '#6c6c6c';
+                ctx.fillRect(px + 8, py + 12, 40, 32);
+                ctx.fillStyle = '#4c4c4c';
+                ctx.fillRect(px + 14, py + 20, 8, 8);
+                ctx.fillRect(px + 30, py + 28, 8, 8);
+                ctx.fillStyle = '#9c9c9c';
+                ctx.fillRect(px + 20, py + 36, 16, 4);
+                break;
+            case TILE.WATER:
+                ctx.fillStyle = '#4c8cb4';
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                ctx.fillStyle = '#6cace4';
+                for (let i = 0; i < 3; i++) ctx.beginPath(), ctx.arc(px + 14 + i * 14, py + 28, 6, 0, Math.PI * 2), ctx.fill();
+                break;
+            case TILE.HEART:
+                ctx.fillStyle = '#e45c5c';
+                ctx.fillRect(px + 12, py + 8, 10, 10);
+                ctx.fillRect(px + 34, py + 8, 10, 10);
+                ctx.fillRect(px + 8, py + 18, 40, 16);
+                ctx.fillRect(px + 16, py + 30, 24, 12);
+                ctx.fillStyle = '#fc9c9c';
+                ctx.fillRect(px + 20, py + 14, 6, 6);
+                ctx.fillRect(px + 38, py + 14, 6, 6);
+                ctx.fillRect(px + 28, py + 26, 6, 6);
+                break;
+            case TILE.KEY:
+                ctx.fillStyle = '#ecd46c';
+                ctx.beginPath();
+                ctx.arc(px + 28, py + 16, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(px + 24, py + 28, 8, 20);
+                ctx.fillStyle = '#fce49c';
+                ctx.fillRect(px + 22, py + 10, 6, 6);
+                ctx.fillRect(px + 38, py + 10, 6, 6);
+                ctx.fillStyle = '#c4a43c';
+                ctx.fillRect(px + 12, py + 32, 8, 8);
+                ctx.fillRect(px + 36, py + 32, 8, 8);
+                break;
+            case TILE.CHEST:
+                ctx.fillStyle = '#b4844c';
+                ctx.fillRect(px + 8, py + 24, 40, 20);
+                ctx.fillStyle = '#9c6c3c';
+                ctx.fillRect(px + 8, py + 12, 40, 12);
+                ctx.fillStyle = '#ecd46c';
+                ctx.fillRect(px + 26, py + 8, 8, 16);
+                ctx.fillStyle = '#6c4c2c';
+                ctx.fillRect(px + 8, py + 20, 40, 2);
+                ctx.fillRect(px + 8, py + 34, 40, 2);
+                ctx.fillRect(px + 16, py + 16, 4, 12);
+                ctx.fillRect(px + 36, py + 16, 4, 12);
+                break;
+            case TILE.BIKE:
+                ctx.fillStyle = '#6cace4';
+                ctx.fillRect(px + 8, py + 30, 40, 8);
+                ctx.fillStyle = '#4c6c8c';
+                ctx.beginPath();
+                ctx.arc(px + 18, py + 42, 10, 0, Math.PI * 2);
+                ctx.arc(px + 38, py + 42, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fce49c';
+                ctx.fillRect(px + 22, py + 22, 12, 6);
+                ctx.fillRect(px + 34, py + 14, 6, 12);
+                ctx.strokeStyle = '#fcfcfc';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(px + 18, py + 42);
+                    ctx.lineTo(px + 18 + 8 * Math.cos(i * Math.PI/2), py + 42 + 8 * Math.sin(i * Math.PI/2));
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(px + 38, py + 42);
+                    ctx.lineTo(px + 38 + 8 * Math.cos(i * Math.PI/2), py + 42 + 8 * Math.sin(i * Math.PI/2));
+                    ctx.stroke();
+                }
+                break;
+            case TILE.RED_CARPET:
+                ctx.fillStyle = '#b44c4c';
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                ctx.fillStyle = '#d46c6c';
+                for (let i = 0; i < 4; i++) ctx.fillRect(px + 4 + i * 12, py + 20, 6, 16);
+                ctx.fillStyle = '#f49c9c';
+                ctx.fillRect(px + 10, py + 8, 4, 4);
+                ctx.fillRect(px + 42, py + 8, 4, 4);
+                break;
+            case TILE.ALTAR:
+                ctx.fillStyle = '#d4b48c';
+                ctx.fillRect(px + 8, py + 20, 40, 20);
+                ctx.fillStyle = '#f4e4bc';
+                ctx.fillRect(px + 20, py + 8, 16, 14);
+                ctx.fillStyle = '#b48c6c';
+                ctx.fillRect(px + 24, py + 28, 8, 8);
+                break;
+        }
+    }
+
+    function drawNPC(npc) {
+        const px = npc.x * TILE_SIZE;
+        const py = npc.y * TILE_SIZE;
+        switch (npc.type) {
+            case 'gato':
+                ctx.fillStyle = '#f49c4c';
+                ctx.fillRect(px + 12, py + 12, 32, 24);
+                ctx.fillRect(px + 20, py + 4, 16, 12);
+                ctx.fillStyle = '#e48c3c';
+                ctx.fillRect(px + 14, py, 8, 8);
+                ctx.fillRect(px + 34, py, 8, 8);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 24, py + 12, 4, 4);
+                ctx.fillRect(px + 36, py + 12, 4, 4);
+                break;
+            case 'perro':
+                ctx.fillStyle = '#ac8c6c';
+                ctx.fillRect(px + 8, py + 20, 40, 16);
+                ctx.fillRect(px + 16, py + 8, 16, 16);
+                ctx.fillStyle = '#8c6c4c';
+                ctx.fillRect(px + 12, py + 4, 6, 6);
+                ctx.fillRect(px + 30, py + 4, 6, 6);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 20, py + 16, 4, 4);
+                ctx.fillRect(px + 28, py + 16, 4, 4);
+                break;
+            case 'penguin':
+                ctx.fillStyle = '#2c2c2c';
+                ctx.fillRect(px + 12, py + 12, 32, 28);
+                ctx.fillStyle = '#fcfcfc';
+                ctx.fillRect(px + 18, py + 24, 8, 10);
+                ctx.fillRect(px + 30, py + 24, 8, 10);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 22, py + 18, 4, 4);
+                ctx.fillRect(px + 34, py + 18, 4, 4);
+                ctx.fillStyle = '#f49c4c';
+                ctx.fillRect(px + 28, py + 22, 4, 6);
+                break;
+            case 'cura':
+                ctx.fillStyle = '#fcfcfc';
+                ctx.fillRect(px + 12, py + 12, 32, 32);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 22, py + 18, 4, 4);
+                ctx.fillRect(px + 34, py + 18, 4, 4);
+                ctx.fillStyle = '#d4b48c';
+                ctx.fillRect(px + 24, py + 28, 8, 8);
+                break;
+            default:
+                ctx.fillStyle = '#8c7c6c';
+                ctx.fillRect(px + 12, py + 20, 32, 24);
+                ctx.fillStyle = '#fcd49c';
+                ctx.fillRect(px + 20, py + 8, 16, 16);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 24, py + 14, 4, 4);
+                ctx.fillRect(px + 32, py + 14, 4, 4);
+        }
+    }
+
+    function drawPlayer() {
+        const px = player.x * TILE_SIZE;
+        const py = player.y * TILE_SIZE;
+        if (currentMap === 3 && hasHeart) {
+            ctx.fillStyle = '#fcfcfc';
+            ctx.fillRect(px + 14, py + 24, 28, 24);
+            ctx.fillStyle = '#fcd49c';
+            ctx.fillRect(px + 22, py + 14, 12, 14);
+            ctx.fillStyle = '#ac6c4c';
+            ctx.fillRect(px + 14, py + 6, 28, 10);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(px + 24, py + 20, 4, 4);
+            ctx.fillRect(px + 32, py + 20, 4, 4);
+            ctx.fillStyle = '#fcfcfc';
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(px + 14, py, 28, 8);
+            ctx.globalAlpha = 1;
+        } else {
+            ctx.fillStyle = '#f49cbc';
+            ctx.fillRect(px + 14, py + 24, 28, 24);
+            ctx.fillStyle = '#7c5c4c';
+            ctx.fillRect(px + 18, py + 46, 6, 10);
+            ctx.fillRect(px + 32, py + 46, 6, 10);
+            ctx.fillStyle = '#fcd49c';
+            ctx.fillRect(px + 22, py + 14, 12, 14);
+            ctx.fillStyle = '#ac6c4c';
+            ctx.fillRect(px + 14, py + 6, 28, 10);
+            ctx.fillRect(px + 10, py + 12, 8, 10);
+            ctx.fillRect(px + 38, py + 12, 8, 10);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(px + 24, py + 20, 4, 4);
+            ctx.fillRect(px + 32, py + 20, 4, 4);
+        }
+    }
+
+    function drawMiguel() {
+        if (currentMap !== 3 || !hasHeart) return;
+        const px = miguelPos.x * TILE_SIZE;
+        const py = miguelPos.y * TILE_SIZE;
+        ctx.fillStyle = '#4c6c8c';
+        ctx.fillRect(px + 14, py + 24, 28, 24);
+        ctx.fillStyle = '#fcd49c';
+        ctx.fillRect(px + 22, py + 14, 12, 14);
+        ctx.fillStyle = '#2c2c2c';
+        ctx.fillRect(px + 14, py + 6, 28, 10);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(px + 24, py + 20, 4, 4);
+        ctx.fillRect(px + 32, py + 20, 4, 4);
+        ctx.fillStyle = '#d45c5c';
+        ctx.fillRect(px + 26, py + 28, 4, 8);
+    }
+
+    function drawMap() {
+        for (let row = 0; row < MAP_H; row++) {
+            for (let col = 0; col < MAP_W; col++) {
+                drawTile(col, row, maps[currentMap][row][col]);
+            }
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMap();
+        npcs.filter(n => n.map === currentMap).forEach(drawNPC);
+        if (currentMap === 3 && hasHeart) drawMiguel();
+        drawPlayer();
+
+        if (fadeAlpha > 0) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        if (gameEnded) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 40px "Courier New"';
+            ctx.textAlign = 'center';
+            ctx.fillText('FIN DEL JUEGO', canvas.width/2, canvas.height/2 - 30);
+            ctx.font = 'bold 30px "Courier New"';
+            ctx.fillText('te amo mi chikibeiki', canvas.width/2, canvas.height/2 + 30);
+        }
+    }
+
+    function animate() {
+        windOffset += windSpeed;
+        updateWedding();
+        draw();
+        requestAnimationFrame(animate);
+    }
+
+    musicBtn.addEventListener('click', () => {
+        if (musicPlaying) {
+            audio.pause();
+            musicBtn.innerHTML = '🔇 Música';
+        } else {
+            audio.play().catch(e => console.log('Reproducción automática bloqueada'));
+            musicBtn.innerHTML = '🔊 Música';
+        }
+        musicPlaying = !musicPlaying;
+    });
+
+    window.addEventListener('load', () => {
+        audio.volume = 0.3;
+        let playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                musicPlaying = true;
+                musicBtn.innerHTML = '🔊 Música';
+            }).catch(() => {
+                musicPlaying = false;
+                musicBtn.innerHTML = '🔇 Música';
+            });
+        }
+    });
+
+    document.getElementById('btnUp').addEventListener('click', () => tryMove(0, -1));
+    document.getElementById('btnDown').addEventListener('click', () => tryMove(0, 1));
+    document.getElementById('btnLeft').addEventListener('click', () => tryMove(-1, 0));
+    document.getElementById('btnRight').addEventListener('click', () => tryMove(1, 0));
+    document.getElementById('btnAction').addEventListener('click', interact);
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        e.preventDefault();
+        if (key === 'ArrowUp') tryMove(0, -1);
+        else if (key === 'ArrowDown') tryMove(0, 1);
+        else if (key === 'ArrowLeft') tryMove(-1, 0);
+        else if (key === 'ArrowRight') tryMove(1, 0);
+        else if (key === ' ' || key === 'Enter') interact();
+    });
+
+    animate();
+})();
+</script>
+</body>
+</html>
