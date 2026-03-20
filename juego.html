@@ -224,8 +224,8 @@
         ],
         // MAPA 2: Santuario (solo una puerta a mapa1 en (0,0), las otras eliminadas)
         [
-            [1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1], // (0,0) ahora es puerta, (0,6) ya no es puerta (era 6, ahora 1)
-            [1,0,0,13,0,0,6,0,0,13,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1], // (0,0) ahora es puerta, (0,6) ya no es puerta (era 6, ahora 1)
+            [1,0,0,13,0,0,0,0,0,13,0,0,0,0,0,1],
             [1,0,1,0,0,0,0,0,0,0,0,1,0,0,5,1],
             [1,13,0,0,1,0,13,0,0,0,0,0,0,0,0,1],
             [1,0,0,0,0,0,0,0,1,0,0,0,13,0,0,1],
@@ -482,7 +482,7 @@
                 }
             }
             // Mapa 2 -> Mapa 1 (única puerta en (0,0))
-            else if (currentMap === 2 && newY === 0 && newX === 0) {
+            else if (currentMap === 2 && newY === 0 && newX === 7) {
                 currentMap = 1;
                 player.x = 7; player.y = 11; // Aparece en la entrada estándar de mapa 1
             }
